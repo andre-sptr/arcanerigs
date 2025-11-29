@@ -37,38 +37,39 @@ const Chat = () => {
       return;
     }
 
-    // 1. Simpan input user dan kosongkan field
-    const currentInput = input;
-    const userMessage: Message = { role: "user", content: currentInput };
-    
-    // Update UI segera dengan pesan user
+    // 1. Tambahkan pesan user ke UI
+    const userMessage: Message = { role: "user", content: input };
     setMessages(prev => [...prev, userMessage]);
-    setInput("");
+    const currentInput = input;
+    setInput(""); // Clear input segera
     setIsLoading(true);
 
     try {
+      // 2. Siapkan Model
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash",
         systemInstruction: "You are a helpful, expert AI assistant for ArcaneRigs, a custom PC building company. You act as a PC hardware expert. You help customers verify compatibility, suggest PC builds (Gaming, Workstation, Streaming), and explain technical terms (CPU, GPU, RAM, etc). Keep your answers concise, professional, and friendly. Do not answer questions unrelated to computers or technology."
       });
 
-      // PERBAIKAN DI SINI:
-      // Kita memfilter pesan pertama (index 0) karena itu adalah pesan sambutan default dari bot.
-      // Gemini API akan error jika history dimulai dengan 'model'.
+      // 3. Siapkan History Chat untuk Konteks
+      // Gemini SDK membutuhkan format history yang spesifik
       const history = messages
-        .filter((_, index) => index > 0) // Hapus pesan sambutan default dari history API
-        .map(msg => ({
-          role: msg.role === "user" ? "user" : "model",
-          parts: [{ text: msg.content }],
-        }));
+      .filter((_, index) => index > 0) 
+      .map(msg => ({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.content }],
+      }));
 
+      // Mulai Chat Session
       const chat = model.startChat({
         history: history,
       });
 
+      // 4. Kirim Pesan ke Gemini
       const result = await chat.sendMessage(currentInput);
       const response = result.response.text();
 
+      // 5. Tambahkan balasan AI ke UI
       const assistantMessage: Message = {
         role: "assistant",
         content: response
@@ -82,6 +83,7 @@ const Chat = () => {
         description: "Failed to get response from AI. Please try again.",
         variant: "destructive"
       });
+      // Opsional: Hapus pesan user terakhir jika gagal, atau biarkan agar user bisa copy-paste
     } finally {
       setIsLoading(false);
     }
